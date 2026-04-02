@@ -5,12 +5,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.househunters.ui.navigation.Screen
+import com.example.househunters.ui.screens.LoginScreen
+import com.example.househunters.ui.screens.SignupScreen
+import com.example.househunters.ui.screens.WelcomeScreen
 import com.example.househunters.ui.theme.HouseHuntersTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,11 +24,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             HouseHuntersTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    HouseHuntersApp()
                 }
             }
         }
@@ -31,17 +33,45 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+private fun HouseHuntersApp() {
+    val navController = rememberNavController()
+
+    NavHost(navController = navController, startDestination = Screen.Welcome) {
+        composable(Screen.Welcome) {
+            WelcomeScreen(
+                onLoginClick = { navController.navigate(Screen.Login) },
+                onSignupClick = { navController.navigate(Screen.Signup) }
+            )
+        }
+        composable(Screen.Login) {
+            LoginScreen(
+                onLoginClick = {
+                    navController.navigate(Screen.Welcome) {
+                        popUpTo(Screen.Welcome) { inclusive = true }
+                    }
+                },
+                onGotoSignupClick = { navController.navigate(Screen.Signup) }
+            )
+        }
+        composable(Screen.Signup) {
+            SignupScreen(
+                onCreateAccountClick = {
+                    navController.navigate(Screen.Welcome) {
+                        popUpTo(Screen.Welcome) { inclusive = true }
+                    }
+                },
+                onGotoLoginClick = { navController.navigate(Screen.Login) }
+            )
+        }
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
+private fun HouseHuntersPreview() {
     HouseHuntersTheme {
-        Greeting("Android")
+        Surface(modifier = Modifier.fillMaxSize()) {
+            HouseHuntersApp()
+        }
     }
 }

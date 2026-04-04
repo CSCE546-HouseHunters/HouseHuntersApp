@@ -4,4 +4,7 @@ object Screen {
     const val Welcome = "welcome"
     const val Login = "login"
     const val Signup = "signup"
+
+    const val Explore = "explore"
+
 }

@@ -3,9 +3,13 @@ package com.example.househunters.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -27,12 +31,21 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.househunters.ui.components.TileCard
+import com.example.househunters.ui.components.TileItem
 import com.example.househunters.ui.theme.HouseHuntersTheme
 
 @Composable
 fun Explore() {
     val textFieldState = rememberTextFieldState()
     val searchResults = listOf("House 1", "Apartment 2", "Villa 3") // Example data
+
+    val tileItems = listOf(
+        TileItem("1", "Modern Villa", android.R.drawable.ic_menu_gallery, false),
+        TileItem("2", "Cozy Apartment", android.R.drawable.ic_menu_gallery, true),
+        TileItem("3", "Luxury House", android.R.drawable.ic_menu_gallery, false),
+        TileItem("4", "Beachfront Condo", android.R.drawable.ic_menu_gallery, false)
+    )
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -44,6 +57,19 @@ fun Explore() {
             searchResults = searchResults,
             Modifier.offset(x = 0.dp, y = 30.dp)
         )
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 40.dp, start = 8.dp, end = 8.dp, bottom = 16.dp)
+        ) {
+            items(tileItems) { item ->
+                TileCard(
+                    item = item,
+                    onClick = { /* Handle click */ },
+                    onLikeClick = { /* Handle like */ }
+                )
+            }
+        }
     }
 }
 
@@ -59,7 +85,8 @@ fun SimpleSearchBar(
 
     Box(
         modifier
-            .fillMaxSize()
+            .fillMaxWidth()
+            .wrapContentHeight()
             .semantics { isTraversalGroup = true }
     ) {
         SearchBar(

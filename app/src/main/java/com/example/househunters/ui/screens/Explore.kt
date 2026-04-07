@@ -40,7 +40,7 @@ import com.example.househunters.ui.navigation.Screen
 import com.example.househunters.ui.theme.HouseHuntersTheme
 
 @Composable
-fun Explore() {
+fun Explore(onNavigate: (String) -> Unit) {
     val textFieldState = rememberTextFieldState()
     val searchResults = listOf("House 1", "Apartment 2", "Villa 3") // Example data
 
@@ -72,7 +72,7 @@ fun Explore() {
                 items(tileItems) { item ->
                     TileCard(
                         item = item,
-                        onClick = { /* Handle click */ },
+                        onClick = { onNavigate(Screen.Listing) },
                         onLikeClick = { /* Handle like */ }
                     )
                 }
@@ -81,7 +81,7 @@ fun Explore() {
 
         NavBar(
             currentRoute = Screen.Explore,
-            onNavigate = { /* Handle navigation */ },
+            onNavigate = onNavigate,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
@@ -146,6 +146,6 @@ fun SimpleSearchBar(
 @Composable
 fun ExplorePreview() {
     HouseHuntersTheme {
-        Explore()
+        Explore(onNavigate = {})
     }
 }

@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.househunters.ui.navigation.Screen
+import com.example.househunters.ui.screens.Explore
 import com.example.househunters.ui.screens.LoginScreen
 import com.example.househunters.ui.screens.SignupScreen
 import com.example.househunters.ui.screens.WelcomeScreen
@@ -46,7 +47,7 @@ private fun HouseHuntersApp() {
         composable(Screen.Login) {
             LoginScreen(
                 onLoginClick = {
-                    navController.navigate(Screen.Welcome) {
+                    navController.navigate(Screen.Explore) {
                         popUpTo(Screen.Welcome) { inclusive = true }
                     }
                 },
@@ -56,12 +57,15 @@ private fun HouseHuntersApp() {
         composable(Screen.Signup) {
             SignupScreen(
                 onCreateAccountClick = {
-                    navController.navigate(Screen.Welcome) {
+                    navController.navigate(Screen.Explore) {
                         popUpTo(Screen.Welcome) { inclusive = true }
                     }
                 },
                 onGotoLoginClick = { navController.navigate(Screen.Login) }
             )
+        }
+        composable(Screen.Explore) {
+            Explore()
         }
     }
 }

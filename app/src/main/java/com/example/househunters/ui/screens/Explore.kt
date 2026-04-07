@@ -4,9 +4,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,8 +33,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.househunters.ui.components.NavBar
 import com.example.househunters.ui.components.TileCard
 import com.example.househunters.ui.components.TileItem
+import com.example.househunters.ui.navigation.Screen
 import com.example.househunters.ui.theme.HouseHuntersTheme
 
 @Composable
@@ -47,29 +51,41 @@ fun Explore() {
         TileItem("4", "Beachfront Condo", android.R.drawable.ic_menu_gallery, false)
     )
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        SimpleSearchBar(
-            textFieldState = textFieldState,
-            onSearch = { _ -> /* Handle search logic */ },
-            searchResults = searchResults,
-            Modifier.offset(x = 0.dp, y = 30.dp)
-        )
-
-        LazyColumn(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 40.dp, start = 8.dp, end = 8.dp, bottom = 16.dp)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            items(tileItems) { item ->
-                TileCard(
-                    item = item,
-                    onClick = { /* Handle click */ },
-                    onLikeClick = { /* Handle like */ }
-                )
+            Spacer(modifier = Modifier.height(30.dp))
+            
+            SimpleSearchBar(
+                textFieldState = textFieldState,
+                onSearch = { _ -> /* Handle search logic */ },
+                searchResults = searchResults,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(top = 16.dp, start = 8.dp, end = 8.dp, bottom = 100.dp)
+            ) {
+                items(tileItems) { item ->
+                    TileCard(
+                        item = item,
+                        onClick = { /* Handle click */ },
+                        onLikeClick = { /* Handle like */ }
+                    )
+                }
             }
         }
+
+        NavBar(
+            currentRoute = Screen.Explore,
+            onNavigate = { /* Handle navigation */ },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp)
+        )
     }
 }
 

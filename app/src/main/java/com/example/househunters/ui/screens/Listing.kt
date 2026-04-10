@@ -3,12 +3,14 @@ package com.example.househunters.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -33,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.example.househunters.data.HouseHuntersRepository
 import com.example.househunters.data.remote.ListingDetailResponse
@@ -108,36 +111,42 @@ fun ListingRoute(
                             }
                         }
 
-                        Surface(
+                        Row(
                             modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .statusBarsPadding()
+                                .zIndex(1f)
                                 .padding(16.dp)
-                                .size(40.dp),
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.8f)
                         ) {
-                            IconButton(onClick = onBackClick) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = Color.Black
-                                )
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.88f)
+                            ) {
+                                IconButton(onClick = onBackClick) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = Color.Black
+                                    )
+                                }
                             }
-                        }
 
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(16.dp)
-                                .size(40.dp),
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.8f)
-                        ) {
-                            IconButton(onClick = { onToggleFavorite(currentListing.listingId) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Favorite,
-                                    contentDescription = "Favorite",
-                                    tint = if (favoriteIds.contains(currentListing.listingId)) Color.Red else Color.Gray
-                                )
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.88f)
+                            ) {
+                                IconButton(onClick = { onToggleFavorite(currentListing.listingId) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Favorite,
+                                        contentDescription = "Favorite",
+                                        tint = if (favoriteIds.contains(currentListing.listingId)) Color.Red else Color.Gray
+                                    )
+                                }
                             }
                         }
                     }

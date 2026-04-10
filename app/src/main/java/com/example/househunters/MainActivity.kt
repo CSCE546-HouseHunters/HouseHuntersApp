@@ -26,6 +26,7 @@ import com.example.househunters.ui.navigation.Screen
 import com.example.househunters.ui.screens.Explore
 import com.example.househunters.ui.screens.ListingRoute
 import com.example.househunters.ui.screens.LoginScreen
+import com.example.househunters.ui.screens.SavedScreen
 import com.example.househunters.ui.screens.SignupScreen
 import com.example.househunters.ui.screens.WelcomeScreen
 import com.example.househunters.ui.theme.HouseHuntersTheme
@@ -127,6 +128,16 @@ private fun HouseHuntersApp() {
         refreshListings()
     }
 
+    fun navigateToTopLevel(route: String) {
+        navController.navigate(route) {
+            launchSingleTop = true
+            restoreState = true
+            popUpTo(Screen.Explore) {
+                saveState = true
+            }
+        }
+    }
+
     NavHost(navController = navController, startDestination = Screen.Welcome) {
         composable(Screen.Welcome) {
             WelcomeScreen(
@@ -186,11 +197,21 @@ private fun HouseHuntersApp() {
                 onRetry = { refreshListings() },
                 onToggleFavorite = { listingId -> toggleFavorite(listingId) },
                 onOpenListing = { listingId -> navController.navigate(Screen.listing(listingId)) },
-                onNavigate = { route ->
-                    if (route == Screen.Explore) {
-                        navController.navigate(Screen.Explore)
-                    }
-                }
+                onNavigate = { route -> navigateToTopLevel(route) }
+            )
+        }
+        composable(Screen.Saved) {
+            SavedScreen(
+                listings = listings,
+                favoriteIds = favoriteIds,
+                isLoading = listingsLoading,
+                errorMessage = listingsError,
+                currentUserName = session.user?.firstName,
+                isLoggedIn = !session.token.isNullOrBlank(),
+                onRetry = { refreshListings() },
+                onToggleFavorite = { listingId -> toggleFavorite(listingId) },
+                onOpenListing = { listingId -> navController.navigate(Screen.listing(listingId)) },
+                onNavigate = { route -> navigateToTopLevel(route) }
             )
         }
         composable(
@@ -206,8 +227,8 @@ private fun HouseHuntersApp() {
                 onBackClick = { navController.popBackStack() },
                 onToggleFavorite = { id -> toggleFavorite(id) },
                 onNavigate = { route ->
-                    if (route == Screen.Explore) {
-                        navController.navigate(Screen.Explore)
+                    if (route == Screen.Explore || route == Screen.Saved) {
+                        navigateToTopLevel(route)
                     }
                 }
             )

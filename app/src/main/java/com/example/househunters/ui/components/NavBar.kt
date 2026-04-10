@@ -63,8 +63,8 @@ fun NavBar(
             NavItem(
                 icon = Icons.Default.FavoriteBorder,
                 label = "Saved",
-                isSelected = currentRoute == "saved",
-                onClick = { onNavigate("saved") }
+                isSelected = currentRoute == Screen.Saved,
+                onClick = { onNavigate(Screen.Saved) }
             )
             NavItem(
                 icon = Icons.Default.MailOutline,

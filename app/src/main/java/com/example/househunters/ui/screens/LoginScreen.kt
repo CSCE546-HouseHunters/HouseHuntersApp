@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,7 +19,9 @@ import com.example.househunters.ui.theme.HouseHuntersTheme
 
 @Composable
 fun LoginScreen(
-    onLoginClick: () -> Unit,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onLoginClick: (String, String) -> Unit,
     onGotoSignupClick: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
@@ -40,11 +44,18 @@ fun LoginScreen(
                 placeholder = "Enter Password",
                 onValueChange = { password = it }
             )
+            if (errorMessage != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
 
             Spacer(modifier = Modifier.height(28.dp))
             AuthPrimaryButton(
-                label = "Login",
-                onClick = onLoginClick,
+                label = if (isLoading) "Logging In..." else "Login",
+                onClick = { onLoginClick(email.trim(), password) },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(12.dp))
@@ -61,7 +72,9 @@ fun LoginScreen(
 @Composable
 fun LoginScreenPreview() {
         LoginScreen(
-            onLoginClick = {},
+            isLoading = false,
+            errorMessage = null,
+            onLoginClick = { _, _ -> },
             onGotoSignupClick = {}
         )
 

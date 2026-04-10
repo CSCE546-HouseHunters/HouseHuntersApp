@@ -5,6 +5,10 @@ object Screen {
     const val Login = "login"
     const val Signup = "signup"
     const val Explore = "explore"
+    const val Saved = "saved"
     const val Listing = "listing"
-    const val Favorites = "favorites"
+    const val ListingIdArg = "listingId"
+    const val ListingRoute = "$Listing/{$ListingIdArg}"
+
+    fun listing(listingId: Int): String = "$Listing/$listingId"
 }

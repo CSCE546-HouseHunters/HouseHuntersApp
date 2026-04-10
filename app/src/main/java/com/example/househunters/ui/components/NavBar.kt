@@ -38,8 +38,8 @@ fun NavBar(
             .padding(horizontal = 24.dp, vertical = 24.dp)
             .shadow(
                 elevation = 12.dp,
-                shape = RoundedCornerShape(64.dp),
-                ambientColor = Color.Black.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(64.dp), // Matched shape for better shadow clipping
+                ambientColor = Color.Black.copy(alpha = 0.1f), // Softened shadow as suggested
                 spotColor = Color.Black.copy(alpha = 0.1f)
             )
             .fillMaxWidth(),
@@ -63,8 +63,8 @@ fun NavBar(
             NavItem(
                 icon = Icons.Default.FavoriteBorder,
                 label = "Saved",
-                isSelected = currentRoute == Screen.Favorites,
-                onClick = { onNavigate(Screen.Favorites) }
+                isSelected = currentRoute == Screen.Saved,
+                onClick = { onNavigate(Screen.Saved) }
             )
             NavItem(
                 icon = Icons.Default.MailOutline,

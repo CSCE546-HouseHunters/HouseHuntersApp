@@ -6,4 +6,8 @@ object Screen {
     const val Signup = "signup"
     const val Explore = "explore"
     const val Listing = "listing"
+    const val ListingIdArg = "listingId"
+    const val ListingRoute = "$Listing/{$ListingIdArg}"
+
+    fun listing(listingId: Int): String = "$Listing/$listingId"
 }

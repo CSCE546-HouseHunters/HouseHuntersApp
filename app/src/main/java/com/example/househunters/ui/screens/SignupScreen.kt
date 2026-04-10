@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,12 +20,15 @@ import com.example.househunters.ui.theme.HouseHuntersTheme
 
 @Composable
 fun SignupScreen(
-    onCreateAccountClick: () -> Unit,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onCreateAccountClick: (String, String, String, String, String) -> Unit,
     onGotoLoginClick: () -> Unit
 ) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     AuthGradientBackground {
@@ -51,15 +56,36 @@ fun SignupScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
             AuthTextField(
+                value = phone,
+                placeholder = "Enter Phone",
+                onValueChange = { phone = it }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            AuthTextField(
                 value = password,
                 placeholder = "Enter Password",
                 onValueChange = { password = it }
             )
+            if (errorMessage != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
 
             Spacer(modifier = Modifier.height(40.dp))
             AuthPrimaryButton(
-                label = "Create Account",
-                onClick = onCreateAccountClick,
+                label = if (isLoading) "Creating..." else "Create Account",
+                onClick = {
+                    onCreateAccountClick(
+                        firstName.trim(),
+                        lastName.trim(),
+                        email.trim(),
+                        phone.trim(),
+                        password
+                    )
+                },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(12.dp))
@@ -78,7 +104,9 @@ fun SignupScreenPreview() {
     HouseHuntersTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             SignupScreen(
-                onCreateAccountClick = {},
+                isLoading = false,
+                errorMessage = null,
+                onCreateAccountClick = { _, _, _, _, _ -> },
                 onGotoLoginClick = {}
             )
         }

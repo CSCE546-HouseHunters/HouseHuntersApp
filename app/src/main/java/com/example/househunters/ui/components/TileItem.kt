@@ -1,6 +1,5 @@
 package com.example.househunters.ui.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -25,16 +24,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.househunters.ui.theme.HouseHuntersTheme
 
-data class TileItem(val id: String,
-                    val title: String,
-                    val imageResId: Int,
-                    val isLiked: Boolean)
+data class TileItem(
+    val id: Int,
+    val title: String,
+    val subtitle: String,
+    val imageUrl: String?,
+    val priceLabel: String,
+    val isLiked: Boolean
+)
 
 @Composable
 fun TileCard(
@@ -55,14 +57,12 @@ fun TileCard(
         shape = RoundedCornerShape(12.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Image(
-                painter = painterResource(id = item.imageResId),
+            AsyncImage(
+                model = item.imageUrl,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Semi-transparent overlay to ensure text is readable
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -81,13 +81,23 @@ fun TileCard(
                         .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 4.dp)
                 )
+                Text(
+                    text = item.subtitle,
+                    color = Color.White,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                Text(
+                    text = item.priceLabel,
+                    color = Color.White,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
 
                 Spacer(modifier = Modifier.weight(1f))
 
                 IconButton(
                     onClick = {
-                        isLiked = !isLiked // Toggles local state
-                        onLikeClick()       // Notifies parent
+                        isLiked = !isLiked
+                        onLikeClick()
                     },
                     modifier = Modifier.align(Alignment.End)
                 ) {
@@ -108,9 +118,11 @@ fun TileCardPreview() {
     HouseHuntersTheme {
         TileCard(
             item = TileItem(
-                id = "1",
+                id = 1,
                 title = "Sample House",
-                imageResId = android.R.drawable.ic_menu_gallery,
+                subtitle = "Apartment",
+                imageUrl = null,
+                priceLabel = "$120/day",
                 isLiked = false
             ),
             onClick = {},

@@ -6,4 +6,5 @@ object Screen {
     const val Signup = "signup"
     const val Explore = "explore"
     const val Listing = "listing"
+    const val Favorites = "favorites"
 }

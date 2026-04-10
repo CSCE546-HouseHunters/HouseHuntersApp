@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.househunters.ui.navigation.Screen
 import com.example.househunters.ui.screens.Explore
+import com.example.househunters.ui.screens.Favorites
 import com.example.househunters.ui.screens.Listing
 import com.example.househunters.ui.screens.ListingDetails
 import com.example.househunters.ui.screens.LoginScreen
@@ -68,6 +69,9 @@ private fun HouseHuntersApp() {
         }
         composable(Screen.Explore) {
             Explore(onNavigate = { route -> navController.navigate(route) })
+        }
+        composable(Screen.Favorites) {
+            Favorites(onNavigate = { route -> navController.navigate(route) })
         }
         composable(Screen.Listing) {
             val genericListing = ListingDetails(

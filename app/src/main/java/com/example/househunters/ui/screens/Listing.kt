@@ -15,16 +15,25 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,14 +47,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.example.househunters.data.HouseHuntersRepository
+import com.example.househunters.data.remote.ListingAvailabilityRangeResponse
 import com.example.househunters.data.remote.ListingDetailResponse
 import com.example.househunters.ui.components.NavBar
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 @Composable
 fun ListingRoute(
     listingId: Int,
     repository: HouseHuntersRepository,
     token: String?,
+    currentUserId: Int?,
     favoriteIds: Set<Int>,
     onBackClick: () -> Unit,
     onToggleFavorite: (Int) -> Unit,
@@ -56,13 +72,20 @@ fun ListingRoute(
     var isLoading by remember(listingId) { mutableStateOf(true) }
     var startDate by remember { mutableStateOf("") }
     var endDate by remember { mutableStateOf("") }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
     var bookingMessage by remember { mutableStateOf<String?>(null) }
     var isBooking by remember { mutableStateOf(false) }
+    var availabilityRanges by remember(listingId) { mutableStateOf<List<ListingAvailabilityRangeResponse>>(emptyList()) }
+    var availabilityLoading by remember(listingId) { mutableStateOf(false) }
+    var availabilityError by remember(listingId) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(listingId) {
         isLoading = true
         errorMessage = null
         bookingMessage = null
+        availabilityError = null
+        availabilityRanges = emptyList()
         runCatching {
             repository.getListingDetails(listingId)
         }.onSuccess {
@@ -72,6 +95,22 @@ fun ListingRoute(
         }
         isLoading = false
     }
+
+    LaunchedEffect(listingId) {
+        availabilityLoading = true
+        availabilityError = null
+        runCatching {
+            repository.getListingAvailability(listingId)
+        }.onSuccess {
+            availabilityRanges = it.sortedBy(ListingAvailabilityRangeResponse::startDate)
+        }.onFailure {
+            availabilityRanges = emptyList()
+            availabilityError = it.message ?: "Unable to load unavailable dates."
+        }
+        availabilityLoading = false
+    }
+
+    val blockedDates = remember(availabilityRanges) { availabilityRanges.toBlockedDateSet() }
 
     when {
         isLoading -> {
@@ -88,6 +127,7 @@ fun ListingRoute(
 
         else -> {
             val currentListing = listing ?: return
+            val isOwner = currentUserId == currentListing.userId
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
@@ -190,16 +230,16 @@ fun ListingRoute(
                             style = MaterialTheme.typography.titleMedium
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        AuthTextField(
+                        BookingDateField(
+                            label = "Start date",
                             value = startDate,
-                            placeholder = "Start date (YYYY-MM-DD)",
-                            onValueChange = { startDate = it }
+                            onClick = { showStartDatePicker = true }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        AuthTextField(
+                        BookingDateField(
+                            label = "End date",
                             value = endDate,
-                            placeholder = "End date (YYYY-MM-DD)",
-                            onValueChange = { endDate = it }
+                            onClick = { showEndDatePicker = true }
                         )
                         if (bookingMessage != null) {
                             Spacer(modifier = Modifier.height(12.dp))
@@ -219,8 +259,18 @@ fun ListingRoute(
                             onClick = {
                                 if (token.isNullOrBlank()) {
                                     bookingMessage = "Log in before creating a booking."
+                                } else if (isOwner) {
+                                    bookingMessage = "You cannot book your own listing."
+                                } else if (availabilityLoading) {
+                                    bookingMessage = "Wait for unavailable dates to load."
+                                } else if (availabilityError != null) {
+                                    bookingMessage = availabilityError
                                 } else if (startDate.isBlank() || endDate.isBlank()) {
-                                    bookingMessage = "Enter both dates in YYYY-MM-DD format."
+                                    bookingMessage = "Select both dates before booking."
+                                } else if (endDate < startDate) {
+                                    bookingMessage = "End date must be on or after the start date."
+                                } else if (hasBlockedDateInRange(startDate, endDate, blockedDates)) {
+                                    bookingMessage = "Those dates overlap with unavailable dates."
                                 } else {
                                     isBooking = true
                                     bookingMessage = null
@@ -229,7 +279,46 @@ fun ListingRoute(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        if (isBooking && !token.isNullOrBlank() && startDate.isNotBlank() && endDate.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(28.dp))
+                        Text(
+                            text = "Unavailable dates",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        when {
+                            availabilityLoading -> {
+                                CircularProgressIndicator()
+                            }
+
+                            availabilityError != null -> {
+                                Text(
+                                    text = availabilityError ?: "",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+
+                            availabilityRanges.isEmpty() -> {
+                                Text(
+                                    text = "No unavailable dates right now.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            else -> {
+                                availabilityRanges.forEach { range ->
+                                    AvailabilityRangeCard(range = range)
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                            }
+                        }
+
+                        if (
+                            isBooking &&
+                            !token.isNullOrBlank() &&
+                            !isOwner &&
+                            startDate.isNotBlank() &&
+                            endDate.isNotBlank()
+                        ) {
                             LaunchedEffect(isBooking) {
                                 runCatching {
                                     repository.createBooking(
@@ -240,6 +329,8 @@ fun ListingRoute(
                                     )
                                 }.onSuccess { booking ->
                                     bookingMessage = "Booking created: ${booking.status}"
+                                    startDate = ""
+                                    endDate = ""
                                 }.onFailure {
                                     bookingMessage = it.message ?: "Unable to create booking."
                                 }
@@ -266,4 +357,173 @@ fun ListingRoute(
             }
         }
     }
+
+    if (showStartDatePicker) {
+        BookingDatePickerDialog(
+            initialDate = startDate,
+            blockedDates = blockedDates,
+            onDismiss = { showStartDatePicker = false },
+            onDateSelected = { selectedDate ->
+                startDate = selectedDate
+                if (endDate.isNotBlank() && endDate < selectedDate) {
+                    endDate = ""
+                }
+                showStartDatePicker = false
+            }
+        )
+    }
+
+    if (showEndDatePicker) {
+        BookingDatePickerDialog(
+            initialDate = endDate.ifBlank { startDate },
+            blockedDates = blockedDates,
+            onDismiss = { showEndDatePicker = false },
+            onDateSelected = { selectedDate ->
+                endDate = selectedDate
+                showEndDatePicker = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun AvailabilityRangeCard(range: ListingAvailabilityRangeResponse) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Unavailable",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "${range.startDate} to ${range.endDate}",
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    }
+}
+
+@Composable
+private fun BookingDateField(
+    label: String,
+    value: String,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.DateRange,
+            contentDescription = null
+        )
+        Spacer(modifier = Modifier.size(10.dp))
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium
+            )
+            Text(
+                text = value.ifBlank { "Select a date" },
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BookingDatePickerDialog(
+    initialDate: String,
+    blockedDates: Set<LocalDate>,
+    onDismiss: () -> Unit,
+    onDateSelected: (String) -> Unit
+) {
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialDate.toUtcEpochMillisOrNull(),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                val date = utcTimeMillis.toLocalDateUtc()
+                return !blockedDates.contains(date)
+            }
+        }
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    datePickerState.selectedDateMillis
+                        ?.toBackendDateString()
+                        ?.let(onDateSelected)
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    ) {
+        DatePicker(state = datePickerState)
+    }
+}
+
+private fun List<ListingAvailabilityRangeResponse>.toBlockedDateSet(): Set<LocalDate> = buildSet {
+    this@toBlockedDateSet.forEach { range ->
+        val parsedStart = runCatching { LocalDate.parse(range.startDate) }.getOrNull() ?: return@forEach
+        val parsedEnd = runCatching { LocalDate.parse(range.endDate) }.getOrNull() ?: return@forEach
+        if (parsedEnd.isBefore(parsedStart)) return@forEach
+
+        var date = parsedStart
+        while (!date.isAfter(parsedEnd)) {
+            add(date)
+            date = date.plusDays(1)
+        }
+    }
+}
+
+private fun hasBlockedDateInRange(
+    startDate: String,
+    endDate: String,
+    blockedDates: Set<LocalDate>
+): Boolean {
+    val start = runCatching { LocalDate.parse(startDate) }.getOrNull() ?: return false
+    val end = runCatching { LocalDate.parse(endDate) }.getOrNull() ?: return false
+    if (end.isBefore(start)) return false
+
+    var date = start
+    while (!date.isAfter(end)) {
+        if (blockedDates.contains(date)) return true
+        date = date.plusDays(1)
+    }
+    return false
+}
+
+private fun Long.toBackendDateString(): String =
+    Instant.ofEpochMilli(this)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+        .format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+private fun Long.toLocalDateUtc(): LocalDate =
+    Instant.ofEpochMilli(this)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+
+private fun String.toUtcEpochMillisOrNull(): Long? = try {
+    LocalDate.parse(this)
+        .atStartOfDay(ZoneOffset.UTC)
+        .toInstant()
+        .toEpochMilli()
+} catch (_: DateTimeParseException) {
+    null
 }

@@ -14,12 +14,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.househunters.data.HouseHuntersRepository
+import com.example.househunters.data.SessionStorage
 import com.example.househunters.data.remote.ListingSummaryResponse
 import com.example.househunters.data.remote.UserProfileResponse
 import com.example.househunters.ui.navigation.Screen
@@ -53,8 +55,10 @@ private data class SessionState(
 
 @Composable
 private fun HouseHuntersApp() {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val repository = remember { HouseHuntersRepository() }
+    val sessionStorage = remember(context) { SessionStorage(context.applicationContext) }
     val scope = rememberCoroutineScope()
 
     var session by remember { mutableStateOf(SessionState()) }
@@ -66,6 +70,7 @@ private fun HouseHuntersApp() {
     var loginError by remember { mutableStateOf<String?>(null) }
     var signupLoading by remember { mutableStateOf(false) }
     var signupError by remember { mutableStateOf<String?>(null) }
+    var appReady by remember { mutableStateOf(false) }
 
     fun refreshListings() {
         scope.launch {
@@ -98,6 +103,7 @@ private fun HouseHuntersApp() {
 
     fun completeAuth(token: String, user: UserProfileResponse) {
         session = SessionState(token = token, user = user)
+        sessionStorage.writeToken(token)
         refreshFavorites(token)
         refreshListings()
         navController.navigate(Screen.Explore) {
@@ -106,7 +112,11 @@ private fun HouseHuntersApp() {
     }
 
     fun toggleFavorite(listingId: Int) {
-        val token = session.token ?: return
+        val token = session.token
+        if (token.isNullOrBlank()) {
+            listingsError = "Log in to save listings."
+            return
+        }
         scope.launch {
             val isFavorite = favoriteIds.contains(listingId)
             val previous = favoriteIds
@@ -126,6 +136,21 @@ private fun HouseHuntersApp() {
 
     LaunchedEffect(Unit) {
         refreshListings()
+        val savedToken = sessionStorage.readToken()
+        if (!savedToken.isNullOrBlank()) {
+            runCatching {
+                repository.getCurrentUser(savedToken)
+            }.onSuccess { user ->
+                session = SessionState(token = savedToken, user = user)
+                refreshFavorites(savedToken)
+                navController.navigate(Screen.Explore) {
+                    popUpTo(Screen.Welcome) { inclusive = true }
+                }
+            }.onFailure {
+                sessionStorage.clear()
+            }
+        }
+        appReady = true
     }
 
     fun navigateToTopLevel(route: String) {
@@ -136,6 +161,11 @@ private fun HouseHuntersApp() {
                 saveState = true
             }
         }
+    }
+
+    if (!appReady) {
+        Surface(modifier = Modifier.fillMaxSize()) {}
+        return
     }
 
     NavHost(navController = navController, startDestination = Screen.Welcome) {
@@ -223,6 +253,7 @@ private fun HouseHuntersApp() {
                 listingId = listingId,
                 repository = repository,
                 token = session.token,
+                currentUserId = session.user?.userId,
                 favoriteIds = favoriteIds,
                 onBackClick = { navController.popBackStack() },
                 onToggleFavorite = { id -> toggleFavorite(id) },

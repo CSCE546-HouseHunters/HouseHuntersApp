@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,6 +31,7 @@ import com.example.househunters.ui.theme.HouseHuntersTheme
 fun NavBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
+    onLogout: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -67,17 +68,19 @@ fun NavBar(
                 onClick = { onNavigate(Screen.Saved) }
             )
             NavItem(
-                icon = Icons.Default.MailOutline,
-                label = "Messages",
-                isSelected = currentRoute == "alerts",
-                onClick = { onNavigate("alerts") }
+                icon = Icons.Default.AddCircleOutline,
+                label = "Host",
+                isSelected = currentRoute == Screen.CreateListing,
+                onClick = { onNavigate(Screen.CreateListing) }
             )
-            NavItem(
-                icon = Icons.Default.Person,
-                label = "Profile",
-                isSelected = currentRoute == "profile",
-                onClick = { onNavigate("profile") }
-            )
+            if (onLogout != null) {
+                NavItem(
+                    icon = Icons.AutoMirrored.Filled.Logout,
+                    label = "Logout",
+                    isSelected = false,
+                    onClick = onLogout
+                )
+            }
         }
     }
 }
@@ -110,7 +113,8 @@ fun NavBarPreview() {
             Spacer(modifier = Modifier.weight(1f))
             NavBar(
                 currentRoute = Screen.Explore,
-                onNavigate = {}
+                onNavigate = {},
+                onLogout = {}
             )
         }
     }

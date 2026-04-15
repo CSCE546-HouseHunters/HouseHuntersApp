@@ -66,7 +66,9 @@ fun ListingRoute(
     favoriteIds: Set<Int>,
     onBackClick: () -> Unit,
     onToggleFavorite: (Int) -> Unit,
-    onNavigate: (String) -> Unit
+    onListingDeleted: () -> Unit,
+    onNavigate: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
     var listing by remember(listingId) { mutableStateOf<ListingDetailResponse?>(null) }
     var errorMessage by remember(listingId) { mutableStateOf<String?>(null) }
@@ -77,6 +79,7 @@ fun ListingRoute(
     var showEndDatePicker by remember { mutableStateOf(false) }
     var bookingMessage by remember { mutableStateOf<String?>(null) }
     var isBooking by remember { mutableStateOf(false) }
+    var isDeleting by remember { mutableStateOf(false) }
     var availabilityRanges by remember(listingId) { mutableStateOf<List<ListingAvailabilityRangeResponse>>(emptyList()) }
     var availabilityLoading by remember(listingId) { mutableStateOf(false) }
     var availabilityError by remember(listingId) { mutableStateOf<String?>(null) }
@@ -226,59 +229,90 @@ fun ListingRoute(
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = "Book this stay",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        BookingDateField(
-                            label = "Start date",
-                            value = startDate,
-                            onClick = { showStartDatePicker = true }
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        BookingDateField(
-                            label = "End date",
-                            value = endDate,
-                            onClick = { showEndDatePicker = true }
-                        )
-                        if (bookingMessage != null) {
+                        if (isOwner) {
+                            Text(
+                                text = "Manage this listing",
+                                style = MaterialTheme.typography.titleMedium
+                            )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = bookingMessage ?: "",
-                                color = if (bookingMessage?.startsWith("Booking created") == true) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.error
-                                }
+                                text = "This home belongs to you, so booking is disabled here. You can remove it if you no longer want it visible.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (bookingMessage != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = bookingMessage ?: "",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
+                            AuthPrimaryButton(
+                                label = if (isDeleting) "Deleting..." else "Delete listing",
+                                onClick = {
+                                    if (token.isNullOrBlank()) {
+                                        bookingMessage = "Log in again before deleting this listing."
+                                    } else {
+                                        isDeleting = true
+                                        bookingMessage = null
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            Text(
+                                text = "Book this stay",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            BookingDateField(
+                                label = "Start date",
+                                value = startDate,
+                                onClick = { showStartDatePicker = true }
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            BookingDateField(
+                                label = "End date",
+                                value = endDate,
+                                onClick = { showEndDatePicker = true }
+                            )
+                            if (bookingMessage != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = bookingMessage ?: "",
+                                    color = if (bookingMessage?.startsWith("Booking created") == true) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.error
+                                    }
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+                            AuthPrimaryButton(
+                                label = if (isBooking) "Submitting..." else "Reserve",
+                                onClick = {
+                                    if (token.isNullOrBlank()) {
+                                        bookingMessage = "Log in before creating a booking."
+                                    } else if (availabilityLoading) {
+                                        bookingMessage = "Wait for unavailable dates to load."
+                                    } else if (availabilityError != null) {
+                                        bookingMessage = availabilityError
+                                    } else if (startDate.isBlank() || endDate.isBlank()) {
+                                        bookingMessage = "Select both dates before booking."
+                                    } else if (endDate < startDate) {
+                                        bookingMessage = "End date must be on or after the start date."
+                                    } else if (hasBlockedDateInRange(startDate, endDate, blockedDates)) {
+                                        bookingMessage = "Those dates overlap with unavailable dates."
+                                    } else {
+                                        isBooking = true
+                                        bookingMessage = null
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-                        AuthPrimaryButton(
-                            label = if (isBooking) "Submitting..." else "Reserve",
-                            onClick = {
-                                if (token.isNullOrBlank()) {
-                                    bookingMessage = "Log in before creating a booking."
-                                } else if (isOwner) {
-                                    bookingMessage = "You cannot book your own listing."
-                                } else if (availabilityLoading) {
-                                    bookingMessage = "Wait for unavailable dates to load."
-                                } else if (availabilityError != null) {
-                                    bookingMessage = availabilityError
-                                } else if (startDate.isBlank() || endDate.isBlank()) {
-                                    bookingMessage = "Select both dates before booking."
-                                } else if (endDate < startDate) {
-                                    bookingMessage = "End date must be on or after the start date."
-                                } else if (hasBlockedDateInRange(startDate, endDate, blockedDates)) {
-                                    bookingMessage = "Those dates overlap with unavailable dates."
-                                } else {
-                                    isBooking = true
-                                    bookingMessage = null
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
 
                         Spacer(modifier = Modifier.height(28.dp))
                         Text(
@@ -339,6 +373,22 @@ fun ListingRoute(
                             }
                         }
 
+                        if (isDeleting && !token.isNullOrBlank() && isOwner) {
+                            LaunchedEffect(isDeleting) {
+                                runCatching {
+                                    repository.deleteListing(
+                                        listingId = currentListing.listingId,
+                                        token = token
+                                    )
+                                }.onSuccess {
+                                    onListingDeleted()
+                                }.onFailure {
+                                    bookingMessage = it.message ?: "Unable to delete listing."
+                                }
+                                isDeleting = false
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(140.dp))
                     }
                 }
@@ -352,7 +402,8 @@ fun ListingRoute(
                 ) {
                     NavBar(
                         currentRoute = null,
-                        onNavigate = onNavigate
+                        onNavigate = onNavigate,
+                        onLogout = onLogout
                     )
                 }
             }

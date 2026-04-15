@@ -37,7 +37,8 @@ fun SavedScreen(
     onRetry: () -> Unit,
     onToggleFavorite: (Int) -> Unit,
     onOpenListing: (Int) -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
     val savedListings = listings.filter { listing -> favoriteIds.contains(listing.listingId) }
 
@@ -146,6 +147,7 @@ fun SavedScreen(
         NavBar(
             currentRoute = Screen.Saved,
             onNavigate = onNavigate,
+            onLogout = onLogout,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)

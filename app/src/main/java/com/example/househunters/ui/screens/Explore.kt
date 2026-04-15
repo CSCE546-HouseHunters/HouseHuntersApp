@@ -55,7 +55,8 @@ fun Explore(
     onRetry: () -> Unit,
     onToggleFavorite: (Int) -> Unit,
     onOpenListing: (Int) -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
     val textFieldState = rememberTextFieldState()
     val query = textFieldState.text.toString().trim()
@@ -184,6 +185,7 @@ fun Explore(
         NavBar(
             currentRoute = Screen.Explore,
             onNavigate = onNavigate,
+            onLogout = onLogout,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
@@ -253,7 +255,8 @@ fun ExplorePreview() {
             onRetry = {},
             onToggleFavorite = {},
             onOpenListing = {},
-            onNavigate = {}
+            onNavigate = {},
+            onLogout = {}
         )
     }
 }

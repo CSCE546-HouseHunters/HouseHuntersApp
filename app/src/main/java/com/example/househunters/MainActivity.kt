@@ -25,6 +25,7 @@ import com.example.househunters.data.SessionStorage
 import com.example.househunters.data.remote.ListingSummaryResponse
 import com.example.househunters.data.remote.UserProfileResponse
 import com.example.househunters.ui.navigation.Screen
+import com.example.househunters.ui.screens.CreateListingScreen
 import com.example.househunters.ui.screens.Explore
 import com.example.househunters.ui.screens.ListingRoute
 import com.example.househunters.ui.screens.LoginScreen
@@ -71,6 +72,7 @@ private fun HouseHuntersApp() {
     var signupLoading by remember { mutableStateOf(false) }
     var signupError by remember { mutableStateOf<String?>(null) }
     var appReady by remember { mutableStateOf(false) }
+    var pendingTopLevelRoute by remember { mutableStateOf<String?>(null) }
 
     fun refreshListings() {
         scope.launch {
@@ -111,6 +113,16 @@ private fun HouseHuntersApp() {
         }
     }
 
+    fun logout() {
+        session = SessionState()
+        favoriteIds = emptySet()
+        sessionStorage.clear()
+        navController.navigate(Screen.Welcome) {
+            popUpTo(0) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+
     fun toggleFavorite(listingId: Int) {
         val token = session.token
         if (token.isNullOrBlank()) {
@@ -143,14 +155,22 @@ private fun HouseHuntersApp() {
             }.onSuccess { user ->
                 session = SessionState(token = savedToken, user = user)
                 refreshFavorites(savedToken)
-                navController.navigate(Screen.Explore) {
-                    popUpTo(Screen.Welcome) { inclusive = true }
-                }
+                pendingTopLevelRoute = Screen.Explore
             }.onFailure {
                 sessionStorage.clear()
             }
         }
         appReady = true
+    }
+
+    LaunchedEffect(appReady, pendingTopLevelRoute) {
+        val route = pendingTopLevelRoute ?: return@LaunchedEffect
+        if (!appReady) return@LaunchedEffect
+
+        navController.navigate(route) {
+            popUpTo(Screen.Welcome) { inclusive = true }
+        }
+        pendingTopLevelRoute = null
     }
 
     fun navigateToTopLevel(route: String) {
@@ -227,7 +247,8 @@ private fun HouseHuntersApp() {
                 onRetry = { refreshListings() },
                 onToggleFavorite = { listingId -> toggleFavorite(listingId) },
                 onOpenListing = { listingId -> navController.navigate(Screen.listing(listingId)) },
-                onNavigate = { route -> navigateToTopLevel(route) }
+                onNavigate = { route -> navigateToTopLevel(route) },
+                onLogout = { logout() }
             )
         }
         composable(Screen.Saved) {
@@ -241,7 +262,23 @@ private fun HouseHuntersApp() {
                 onRetry = { refreshListings() },
                 onToggleFavorite = { listingId -> toggleFavorite(listingId) },
                 onOpenListing = { listingId -> navController.navigate(Screen.listing(listingId)) },
-                onNavigate = { route -> navigateToTopLevel(route) }
+                onNavigate = { route -> navigateToTopLevel(route) },
+                onLogout = { logout() }
+            )
+        }
+        composable(Screen.CreateListing) {
+            CreateListingScreen(
+                repository = repository,
+                token = session.token,
+                scope = scope,
+                onListingCreated = { createdListing ->
+                    refreshListings()
+                    navController.navigate(Screen.listing(createdListing.listingId)) {
+                        popUpTo(Screen.CreateListing) { inclusive = true }
+                    }
+                },
+                onNavigate = { route -> navigateToTopLevel(route) },
+                onLogout = { logout() }
             )
         }
         composable(
@@ -257,11 +294,22 @@ private fun HouseHuntersApp() {
                 favoriteIds = favoriteIds,
                 onBackClick = { navController.popBackStack() },
                 onToggleFavorite = { id -> toggleFavorite(id) },
+                onListingDeleted = {
+                    refreshListings()
+                    navController.navigate(Screen.Explore) {
+                        popUpTo(Screen.Explore) { inclusive = true }
+                    }
+                },
                 onNavigate = { route ->
-                    if (route == Screen.Explore || route == Screen.Saved) {
+                    if (
+                        route == Screen.Explore ||
+                        route == Screen.Saved ||
+                        route == Screen.CreateListing
+                    ) {
                         navigateToTopLevel(route)
                     }
-                }
+                },
+                onLogout = { logout() }
             )
         }
     }

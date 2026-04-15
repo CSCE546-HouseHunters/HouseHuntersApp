@@ -50,11 +50,12 @@ import com.example.househunters.data.HouseHuntersRepository
 import com.example.househunters.data.remote.ListingAvailabilityRangeResponse
 import com.example.househunters.data.remote.ListingDetailResponse
 import com.example.househunters.ui.components.NavBar
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun ListingRoute(
@@ -440,7 +441,7 @@ private fun BookingDateField(
 @Composable
 private fun BookingDatePickerDialog(
     initialDate: String,
-    blockedDates: Set<LocalDate>,
+    blockedDates: Set<String>,
     onDismiss: () -> Unit,
     onDateSelected: (String) -> Unit
 ) {
@@ -448,7 +449,7 @@ private fun BookingDatePickerDialog(
         initialSelectedDateMillis = initialDate.toUtcEpochMillisOrNull(),
         selectableDates = object : SelectableDates {
             override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                val date = utcTimeMillis.toLocalDateUtc()
+                val date = utcTimeMillis.toBackendDateString()
                 return !blockedDates.contains(date)
             }
         }
@@ -477,16 +478,16 @@ private fun BookingDatePickerDialog(
     }
 }
 
-private fun List<ListingAvailabilityRangeResponse>.toBlockedDateSet(): Set<LocalDate> = buildSet {
+private fun List<ListingAvailabilityRangeResponse>.toBlockedDateSet(): Set<String> = buildSet {
     this@toBlockedDateSet.forEach { range ->
-        val parsedStart = runCatching { LocalDate.parse(range.startDate) }.getOrNull() ?: return@forEach
-        val parsedEnd = runCatching { LocalDate.parse(range.endDate) }.getOrNull() ?: return@forEach
-        if (parsedEnd.isBefore(parsedStart)) return@forEach
+        val parsedStart = range.startDate.toUtcEpochMillisOrNull() ?: return@forEach
+        val parsedEnd = range.endDate.toUtcEpochMillisOrNull() ?: return@forEach
+        if (parsedEnd < parsedStart) return@forEach
 
-        var date = parsedStart
-        while (!date.isAfter(parsedEnd)) {
-            add(date)
-            date = date.plusDays(1)
+        var currentDateMillis = parsedStart
+        while (currentDateMillis <= parsedEnd) {
+            add(currentDateMillis.toBackendDateString())
+            currentDateMillis = currentDateMillis.plusUtcDays(1)
         }
     }
 }
@@ -494,36 +495,38 @@ private fun List<ListingAvailabilityRangeResponse>.toBlockedDateSet(): Set<Local
 private fun hasBlockedDateInRange(
     startDate: String,
     endDate: String,
-    blockedDates: Set<LocalDate>
+    blockedDates: Set<String>
 ): Boolean {
-    val start = runCatching { LocalDate.parse(startDate) }.getOrNull() ?: return false
-    val end = runCatching { LocalDate.parse(endDate) }.getOrNull() ?: return false
-    if (end.isBefore(start)) return false
+    val start = startDate.toUtcEpochMillisOrNull() ?: return false
+    val end = endDate.toUtcEpochMillisOrNull() ?: return false
+    if (end < start) return false
 
-    var date = start
-    while (!date.isAfter(end)) {
-        if (blockedDates.contains(date)) return true
-        date = date.plusDays(1)
+    var currentDateMillis = start
+    while (currentDateMillis <= end) {
+        if (blockedDates.contains(currentDateMillis.toBackendDateString())) return true
+        currentDateMillis = currentDateMillis.plusUtcDays(1)
     }
     return false
 }
 
-private fun Long.toBackendDateString(): String =
-    Instant.ofEpochMilli(this)
-        .atZone(ZoneOffset.UTC)
-        .toLocalDate()
-        .format(DateTimeFormatter.ISO_LOCAL_DATE)
-
-private fun Long.toLocalDateUtc(): LocalDate =
-    Instant.ofEpochMilli(this)
-        .atZone(ZoneOffset.UTC)
-        .toLocalDate()
+private fun Long.toBackendDateString(): String = backendDateFormat().format(Date(this))
 
 private fun String.toUtcEpochMillisOrNull(): Long? = try {
-    LocalDate.parse(this)
-        .atStartOfDay(ZoneOffset.UTC)
-        .toInstant()
-        .toEpochMilli()
-} catch (_: DateTimeParseException) {
+    backendDateFormat().parse(this)?.time
+} catch (_: ParseException) {
     null
 }
+
+private fun Long.plusUtcDays(days: Int): Long {
+    val calendar = utcCalendar().apply { timeInMillis = this@plusUtcDays }
+    calendar.add(Calendar.DAY_OF_MONTH, days)
+    return calendar.timeInMillis
+}
+
+private fun backendDateFormat(): SimpleDateFormat =
+    SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+        isLenient = false
+    }
+
+private fun utcCalendar(): Calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))

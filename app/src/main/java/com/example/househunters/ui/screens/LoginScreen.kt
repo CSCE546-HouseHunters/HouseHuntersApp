@@ -10,12 +10,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.househunters.ui.theme.HouseHuntersTheme
 
 @Composable
 fun LoginScreen(
@@ -24,8 +23,8 @@ fun LoginScreen(
     onLoginClick: (String, String) -> Unit,
     onGotoSignupClick: () -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
 
     AuthGradientBackground {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -71,11 +70,10 @@ fun LoginScreen(
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
-        LoginScreen(
-            isLoading = false,
-            errorMessage = null,
-            onLoginClick = { _, _ -> },
-            onGotoSignupClick = {}
-        )
-
+    LoginScreen(
+        isLoading = false,
+        errorMessage = null,
+        onLoginClick = { _, _ -> },
+        onGotoSignupClick = {}
+    )
 }

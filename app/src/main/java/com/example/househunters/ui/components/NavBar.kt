@@ -11,7 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,8 +62,8 @@ fun NavBar(
                 onClick = { onNavigate(Screen.Explore) }
             )
             NavItem(
-                icon = Icons.Default.FavoriteBorder,
-                label = "Saved",
+                icon = Icons.Default.PersonOutline,
+                label = "My Stuff",
                 isSelected = currentRoute == Screen.Saved,
                 onClick = { onNavigate(Screen.Saved) }
             )

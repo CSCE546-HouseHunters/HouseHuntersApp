@@ -11,17 +11,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
@@ -44,47 +44,49 @@ import com.example.househunters.ui.components.TileCard
 import com.example.househunters.ui.components.TileItem
 import com.example.househunters.ui.navigation.Screen
 import com.example.househunters.ui.theme.HouseHuntersTheme
+import com.example.househunters.ui.viewmodel.ListingsFilterState
+import com.example.househunters.ui.viewmodel.RentalLengthFilter
 
 @Composable
 fun Explore(
     listings: List<ListingSummaryResponse>,
     favoriteIds: Set<Int>,
+    filters: ListingsFilterState,
     isLoading: Boolean,
     errorMessage: String?,
     currentUserName: String?,
+    onSearchQueryChange: (String) -> Unit,
+    onCityChange: (String) -> Unit,
+    onStateChange: (String) -> Unit,
+    onTypeChange: (String) -> Unit,
+    onMinPriceChange: (String) -> Unit,
+    onMaxPriceChange: (String) -> Unit,
+    onRentalLengthChange: (RentalLengthFilter) -> Unit,
+    onApplyFilters: () -> Unit,
+    onClearFilters: () -> Unit,
     onRetry: () -> Unit,
     onToggleFavorite: (Int) -> Unit,
     onOpenListing: (Int) -> Unit,
     onNavigate: (String) -> Unit,
     onLogout: () -> Unit
 ) {
-    val textFieldState = rememberTextFieldState()
-    val query = textFieldState.text.toString().trim()
-    val filteredListings = remember(listings, query) {
-        if (query.isBlank()) {
-            listings
-        } else {
-            listings.filter { listing ->
-                listOf(
-                    listing.address,
-                    listing.city,
-                    listing.state,
-                    listing.zip,
-                    listing.type,
-                    listing.description
-                ).any { it.contains(query, ignoreCase = true) }
-            }
-        }
-    }
-    val suggestions = remember(listings, query) {
-        if (query.isBlank()) {
+    val suggestions = remember(listings, filters.query) {
+        if (filters.query.isBlank()) {
             emptyList()
         } else {
-            listings.map { "${it.address}, ${it.city}" }
-                .filter { it.contains(query, ignoreCase = true) }
+            listings.flatMap { listing ->
+                listOf(
+                    "${listing.address}, ${listing.city}",
+                    listing.city,
+                    listing.type
+                )
+            }
+                .filter { it.contains(filters.query, ignoreCase = true) }
+                .distinct()
                 .take(5)
         }
     }
+    var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -93,10 +95,25 @@ fun Explore(
         ) {
             Spacer(modifier = Modifier.height(30.dp))
 
-            SimpleSearchBar(
-                textFieldState = textFieldState,
+            SearchListingsBar(
+                query = filters.query,
                 searchResults = suggestions,
+                onQueryChange = onSearchQueryChange,
                 modifier = Modifier.fillMaxWidth()
+            )
+
+            FiltersSection(
+                filters = filters,
+                showAdvancedFilters = showAdvancedFilters,
+                onToggleAdvancedFilters = { showAdvancedFilters = !showAdvancedFilters },
+                onCityChange = onCityChange,
+                onStateChange = onStateChange,
+                onTypeChange = onTypeChange,
+                onMinPriceChange = onMinPriceChange,
+                onMaxPriceChange = onMaxPriceChange,
+                onRentalLengthChange = onRentalLengthChange,
+                onApplyFilters = onApplyFilters,
+                onClearFilters = onClearFilters
             )
 
             Row(
@@ -129,7 +146,7 @@ fun Explore(
                     }
                 }
 
-                errorMessage != null && filteredListings.isEmpty() -> {
+                errorMessage != null && listings.isEmpty() -> {
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -143,12 +160,12 @@ fun Explore(
                     }
                 }
 
-                filteredListings.isEmpty() -> {
+                listings.isEmpty() -> {
                     Box(
                         modifier = Modifier.weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No listings match your search.")
+                        Text("No listings match your current filters.")
                     }
                 }
 
@@ -162,7 +179,7 @@ fun Explore(
                             bottom = 100.dp
                         )
                     ) {
-                        items(filteredListings, key = { it.listingId }) { listing ->
+                        items(listings, key = { it.listingId }) { listing ->
                             val cardItem = TileItem(
                                 id = listing.listingId,
                                 title = "${listing.address}, ${listing.city}",
@@ -193,11 +210,123 @@ fun Explore(
     }
 }
 
+@Composable
+private fun FiltersSection(
+    filters: ListingsFilterState,
+    showAdvancedFilters: Boolean,
+    onToggleAdvancedFilters: () -> Unit,
+    onCityChange: (String) -> Unit,
+    onStateChange: (String) -> Unit,
+    onTypeChange: (String) -> Unit,
+    onMinPriceChange: (String) -> Unit,
+    onMaxPriceChange: (String) -> Unit,
+    onRentalLengthChange: (RentalLengthFilter) -> Unit,
+    onApplyFilters: () -> Unit,
+    onClearFilters: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(
+            text = "Stay length",
+            style = MaterialTheme.typography.labelLarge
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            RentalLengthFilter.entries.forEach { option ->
+                FilterChip(
+                    selected = filters.rentalLength == option,
+                    onClick = { onRentalLengthChange(option) },
+                    label = { Text(option.toLabel()) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "Weekend finds show listings that allow short stays. Long-term highlights month-scale rentals.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = if (showAdvancedFilters) "Hide advanced filters" else "Show advanced filters",
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable(onClick = onToggleAdvancedFilters)
+        )
+
+        if (showAdvancedFilters) {
+            Spacer(modifier = Modifier.height(14.dp))
+            OutlinedTextField(
+                value = filters.city,
+                onValueChange = onCityChange,
+                label = { Text("City") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = filters.state,
+                    onValueChange = onStateChange,
+                    label = { Text("State") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = filters.type,
+                    onValueChange = onTypeChange,
+                    label = { Text("Type") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = filters.minPrice,
+                    onValueChange = onMinPriceChange,
+                    label = { Text("Min price") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = filters.maxPrice,
+                    onValueChange = onMaxPriceChange,
+                    label = { Text("Max price") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onApplyFilters,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Apply")
+                }
+                Button(
+                    onClick = onClearFilters,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Clear")
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SimpleSearchBar(
-    textFieldState: TextFieldState,
+private fun SearchListingsBar(
+    query: String,
     searchResults: List<String>,
+    onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -205,7 +334,6 @@ fun SimpleSearchBar(
     Box(
         modifier
             .fillMaxWidth()
-            .wrapContentHeight()
             .semantics { isTraversalGroup = true }
     ) {
         SearchBar(
@@ -214,12 +342,15 @@ fun SimpleSearchBar(
                 .semantics { traversalIndex = 0f },
             inputField = {
                 SearchBarDefaults.InputField(
-                    query = textFieldState.text.toString(),
-                    onQueryChange = { textFieldState.edit { replace(0, length, it) } },
-                    onSearch = { expanded = false },
+                    query = query,
+                    onQueryChange = onQueryChange,
+                    onSearch = {
+                        onQueryChange(query.trim())
+                        expanded = false
+                    },
                     expanded = expanded,
                     onExpandedChange = { expanded = it },
-                    placeholder = { Text("Search by city, address, or type") }
+                    placeholder = { Text("Search address, city, type, or description") }
                 )
             },
             expanded = expanded && searchResults.isNotEmpty(),
@@ -231,7 +362,7 @@ fun SimpleSearchBar(
                         headlineContent = { Text(result) },
                         modifier = Modifier
                             .clickable {
-                                textFieldState.edit { replace(0, length, result) }
+                                onQueryChange(result.trim())
                                 expanded = false
                             }
                             .fillMaxWidth()
@@ -242,6 +373,12 @@ fun SimpleSearchBar(
     }
 }
 
+private fun RentalLengthFilter.toLabel(): String = when (this) {
+    RentalLengthFilter.ALL -> "All"
+    RentalLengthFilter.WEEKEND -> "Weekend"
+    RentalLengthFilter.LONG_TERM -> "Long-term"
+}
+
 @Preview(showBackground = true)
 @Composable
 fun ExplorePreview() {
@@ -249,9 +386,19 @@ fun ExplorePreview() {
         Explore(
             listings = emptyList(),
             favoriteIds = emptySet(),
+            filters = ListingsFilterState(),
             isLoading = false,
             errorMessage = null,
             currentUserName = "Taylor",
+            onSearchQueryChange = {},
+            onCityChange = {},
+            onStateChange = {},
+            onTypeChange = {},
+            onMinPriceChange = {},
+            onMaxPriceChange = {},
+            onRentalLengthChange = {},
+            onApplyFilters = {},
+            onClearFilters = {},
             onRetry = {},
             onToggleFavorite = {},
             onOpenListing = {},

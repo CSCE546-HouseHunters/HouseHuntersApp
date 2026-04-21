@@ -1,6 +1,7 @@
 package com.example.househunters.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,17 +40,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.househunters.data.HouseHuntersRepository
+import com.example.househunters.data.remote.BookingResponse
 import com.example.househunters.data.remote.ListingAvailabilityRangeResponse
-import com.example.househunters.data.remote.ListingDetailResponse
 import com.example.househunters.ui.components.NavBar
+import com.example.househunters.ui.viewmodel.ListingUiState
+import com.example.househunters.ui.viewmodel.ListingViewModel
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -70,68 +75,57 @@ fun ListingRoute(
     onNavigate: (String) -> Unit,
     onLogout: () -> Unit
 ) {
-    var listing by remember(listingId) { mutableStateOf<ListingDetailResponse?>(null) }
-    var errorMessage by remember(listingId) { mutableStateOf<String?>(null) }
-    var isLoading by remember(listingId) { mutableStateOf(true) }
-    var startDate by remember { mutableStateOf("") }
-    var endDate by remember { mutableStateOf("") }
-    var showStartDatePicker by remember { mutableStateOf(false) }
-    var showEndDatePicker by remember { mutableStateOf(false) }
-    var bookingMessage by remember { mutableStateOf<String?>(null) }
-    var isBooking by remember { mutableStateOf(false) }
-    var isDeleting by remember { mutableStateOf(false) }
-    var availabilityRanges by remember(listingId) { mutableStateOf<List<ListingAvailabilityRangeResponse>>(emptyList()) }
-    var availabilityLoading by remember(listingId) { mutableStateOf(false) }
-    var availabilityError by remember(listingId) { mutableStateOf<String?>(null) }
+    val viewModel: ListingViewModel = viewModel(
+        key = "listing-$listingId",
+        factory = ListingViewModel.factory(
+            listingId = listingId,
+            repository = repository,
+            token = token,
+            currentUserId = currentUserId
+        )
+    )
+    val uiState = viewModel.uiState
 
-    LaunchedEffect(listingId) {
-        isLoading = true
-        errorMessage = null
-        bookingMessage = null
-        availabilityError = null
-        availabilityRanges = emptyList()
-        runCatching {
-            repository.getListingDetails(listingId)
-        }.onSuccess {
-            listing = it
-        }.onFailure {
-            errorMessage = it.message ?: "Unable to load listing."
+    var startDate by rememberSaveable(listingId) { mutableStateOf("") }
+    var endDate by rememberSaveable(listingId) { mutableStateOf("") }
+    var showStartDatePicker by rememberSaveable(listingId) { mutableStateOf(false) }
+    var showEndDatePicker by rememberSaveable(listingId) { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.bookingMessage) {
+        if (uiState.bookingMessage?.startsWith("Booking created") == true) {
+            startDate = ""
+            endDate = ""
         }
-        isLoading = false
     }
 
-    LaunchedEffect(listingId) {
-        availabilityLoading = true
-        availabilityError = null
-        runCatching {
-            repository.getListingAvailability(listingId)
-        }.onSuccess {
-            availabilityRanges = it.sortedBy(ListingAvailabilityRangeResponse::startDate)
-        }.onFailure {
-            availabilityRanges = emptyList()
-            availabilityError = it.message ?: "Unable to load unavailable dates."
-        }
-        availabilityLoading = false
+    val blockedDates = remember(uiState.availabilityRanges) {
+        uiState.availabilityRanges.toBlockedDateSet()
     }
-
-    val blockedDates = remember(availabilityRanges) { availabilityRanges.toBlockedDateSet() }
 
     when {
-        isLoading -> {
+        uiState.isLoading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         }
 
-        listing == null -> {
+        uiState.listing == null -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = errorMessage ?: "Listing not found.")
+                Text(text = uiState.errorMessage ?: "Listing not found.")
             }
         }
 
         else -> {
-            val currentListing = listing ?: return
+            val currentListing = uiState.listing ?: return
             val isOwner = currentUserId == currentListing.userId
+            val guestValidationMessage = guestBookingValidationMessage(
+                token = token,
+                uiState = uiState,
+                startDate = startDate,
+                endDate = endDate,
+                blockedDates = blockedDates
+            )
+
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
@@ -230,87 +224,21 @@ fun ListingRoute(
 
                         Spacer(modifier = Modifier.height(24.dp))
                         if (isOwner) {
-                            Text(
-                                text = "Manage this listing",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "This home belongs to you, so booking is disabled here. You can remove it if you no longer want it visible.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (bookingMessage != null) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = bookingMessage ?: "",
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(24.dp))
-                            AuthPrimaryButton(
-                                label = if (isDeleting) "Deleting..." else "Delete listing",
-                                onClick = {
-                                    if (token.isNullOrBlank()) {
-                                        bookingMessage = "Log in again before deleting this listing."
-                                    } else {
-                                        isDeleting = true
-                                        bookingMessage = null
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
+                            OwnerManagementSection(
+                                uiState = uiState,
+                                onDeleteListing = { viewModel.deleteListing(onListingDeleted) },
+                                onUpdateBookingStatus = viewModel::updateOwnerBookingStatus
                             )
                         } else {
-                            Text(
-                                text = "Book this stay",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            BookingDateField(
-                                label = "Start date",
-                                value = startDate,
-                                onClick = { showStartDatePicker = true }
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            BookingDateField(
-                                label = "End date",
-                                value = endDate,
-                                onClick = { showEndDatePicker = true }
-                            )
-                            if (bookingMessage != null) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = bookingMessage ?: "",
-                                    color = if (bookingMessage?.startsWith("Booking created") == true) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.error
-                                    }
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(24.dp))
-                            AuthPrimaryButton(
-                                label = if (isBooking) "Submitting..." else "Reserve",
-                                onClick = {
-                                    if (token.isNullOrBlank()) {
-                                        bookingMessage = "Log in before creating a booking."
-                                    } else if (availabilityLoading) {
-                                        bookingMessage = "Wait for unavailable dates to load."
-                                    } else if (availabilityError != null) {
-                                        bookingMessage = availabilityError
-                                    } else if (startDate.isBlank() || endDate.isBlank()) {
-                                        bookingMessage = "Select both dates before booking."
-                                    } else if (endDate < startDate) {
-                                        bookingMessage = "End date must be on or after the start date."
-                                    } else if (hasBlockedDateInRange(startDate, endDate, blockedDates)) {
-                                        bookingMessage = "Those dates overlap with unavailable dates."
-                                    } else {
-                                        isBooking = true
-                                        bookingMessage = null
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
+                            GuestBookingSection(
+                                startDate = startDate,
+                                endDate = endDate,
+                                bookingMessage = uiState.bookingMessage,
+                                validationMessage = guestValidationMessage,
+                                isBooking = uiState.isBooking,
+                                onStartDateClick = { showStartDatePicker = true },
+                                onEndDateClick = { showEndDatePicker = true },
+                                onReserve = { viewModel.createBooking(startDate, endDate) }
                             )
                         }
 
@@ -321,18 +249,18 @@ fun ListingRoute(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         when {
-                            availabilityLoading -> {
+                            uiState.availabilityLoading -> {
                                 CircularProgressIndicator()
                             }
 
-                            availabilityError != null -> {
+                            uiState.availabilityError != null -> {
                                 Text(
-                                    text = availabilityError ?: "",
+                                    text = uiState.availabilityError ?: "",
                                     color = MaterialTheme.colorScheme.error
                                 )
                             }
 
-                            availabilityRanges.isEmpty() -> {
+                            uiState.availabilityRanges.isEmpty() -> {
                                 Text(
                                     text = "No unavailable dates right now.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -340,52 +268,10 @@ fun ListingRoute(
                             }
 
                             else -> {
-                                availabilityRanges.forEach { range ->
+                                uiState.availabilityRanges.forEach { range ->
                                     AvailabilityRangeCard(range = range)
                                     Spacer(modifier = Modifier.height(12.dp))
                                 }
-                            }
-                        }
-
-                        if (
-                            isBooking &&
-                            !token.isNullOrBlank() &&
-                            !isOwner &&
-                            startDate.isNotBlank() &&
-                            endDate.isNotBlank()
-                        ) {
-                            LaunchedEffect(isBooking) {
-                                runCatching {
-                                    repository.createBooking(
-                                        listingId = currentListing.listingId,
-                                        startDate = startDate,
-                                        endDate = endDate,
-                                        token = token
-                                    )
-                                }.onSuccess { booking ->
-                                    bookingMessage = "Booking created: ${booking.status}"
-                                    startDate = ""
-                                    endDate = ""
-                                }.onFailure {
-                                    bookingMessage = it.message ?: "Unable to create booking."
-                                }
-                                isBooking = false
-                            }
-                        }
-
-                        if (isDeleting && !token.isNullOrBlank() && isOwner) {
-                            LaunchedEffect(isDeleting) {
-                                runCatching {
-                                    repository.deleteListing(
-                                        listingId = currentListing.listingId,
-                                        token = token
-                                    )
-                                }.onSuccess {
-                                    onListingDeleted()
-                                }.onFailure {
-                                    bookingMessage = it.message ?: "Unable to delete listing."
-                                }
-                                isDeleting = false
                             }
                         }
 
@@ -435,6 +321,193 @@ fun ListingRoute(
                 showEndDatePicker = false
             }
         )
+    }
+}
+
+@Composable
+private fun GuestBookingSection(
+    startDate: String,
+    endDate: String,
+    bookingMessage: String?,
+    validationMessage: String?,
+    isBooking: Boolean,
+    onStartDateClick: () -> Unit,
+    onEndDateClick: () -> Unit,
+    onReserve: () -> Unit
+) {
+    Text(
+        text = "Book this stay",
+        style = MaterialTheme.typography.titleMedium
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    BookingDateField(
+        label = "Start date",
+        value = startDate,
+        onClick = onStartDateClick
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    BookingDateField(
+        label = "End date",
+        value = endDate,
+        onClick = onEndDateClick
+    )
+    if (bookingMessage != null) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = bookingMessage,
+            color = if (bookingMessage.startsWith("Booking created")) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.error
+            }
+        )
+    } else if (!validationMessage.isNullOrBlank()) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = validationMessage,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    Spacer(modifier = Modifier.height(24.dp))
+    AuthPrimaryButton(
+        label = if (isBooking) "Submitting..." else "Reserve",
+        onClick = onReserve,
+        enabled = !isBooking && validationMessage == null,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun OwnerManagementSection(
+    uiState: ListingUiState,
+    onDeleteListing: () -> Unit,
+    onUpdateBookingStatus: (Int, String) -> Unit
+) {
+    Text(
+        text = "Manage this listing",
+        style = MaterialTheme.typography.titleMedium
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(
+        text = "This home belongs to you. You can review booking requests here and remove the listing if needed.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    if (uiState.bookingMessage != null) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = uiState.bookingMessage ?: "",
+            color = if (uiState.bookingMessage?.contains("updated to") == true) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.error
+            }
+        )
+    }
+
+    Spacer(modifier = Modifier.height(18.dp))
+    Text(
+        text = "Booking requests",
+        style = MaterialTheme.typography.titleSmall
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+    when {
+        uiState.ownerBookingsLoading -> CircularProgressIndicator()
+
+        uiState.ownerBookingsError != null -> Text(
+            text = uiState.ownerBookingsError ?: "",
+            color = MaterialTheme.colorScheme.error
+        )
+
+        uiState.ownerBookings.isEmpty() -> Text(
+            text = "No booking requests have been submitted yet.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        else -> {
+            uiState.ownerBookings.forEach { booking ->
+                OwnerBookingCard(
+                    booking = booking,
+                    isUpdating = uiState.activeBookingStatusId == booking.bookingId,
+                    onUpdateBookingStatus = onUpdateBookingStatus
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(24.dp))
+    AuthPrimaryButton(
+        label = if (uiState.isDeleting) "Deleting..." else "Delete listing",
+        onClick = onDeleteListing,
+        enabled = !uiState.isDeleting,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+private fun guestBookingValidationMessage(
+    token: String?,
+    uiState: ListingUiState,
+    startDate: String,
+    endDate: String,
+    blockedDates: Set<String>
+): String? = when {
+    token.isNullOrBlank() -> "Log in before creating a booking."
+    uiState.availabilityLoading -> "Wait for unavailable dates to load."
+    uiState.availabilityError != null -> uiState.availabilityError
+    startDate.isBlank() || endDate.isBlank() -> "Select both dates before booking."
+    endDate < startDate -> "End date must be on or after the start date."
+    hasBlockedDateInRange(startDate, endDate, blockedDates) ->
+        "Those dates overlap with unavailable dates."
+
+    else -> null
+}
+
+@Composable
+private fun OwnerBookingCard(
+    booking: BookingResponse,
+    isUpdating: Boolean,
+    onUpdateBookingStatus: (Int, String) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Booking #${booking.bookingId}",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = "${booking.startDate} to ${booking.endDate}")
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Status: ${booking.status}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (booking.status == "Pending") {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = { onUpdateBookingStatus(booking.bookingId, "Confirmed") },
+                        enabled = !isUpdating,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (isUpdating) "Working..." else "Accept")
+                    }
+                    OutlinedButton(
+                        onClick = { onUpdateBookingStatus(booking.bookingId, "Rejected") },
+                        enabled = !isUpdating,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (isUpdating) "Working..." else "Deny")
+                    }
+                }
+            }
+        }
     }
 }
 

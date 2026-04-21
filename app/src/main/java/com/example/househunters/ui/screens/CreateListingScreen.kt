@@ -27,9 +27,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -41,32 +41,31 @@ import com.example.househunters.data.remote.ListingImageRequest
 import com.example.househunters.data.remote.UpsertListingRequest
 import com.example.househunters.ui.components.NavBar
 import com.example.househunters.ui.navigation.Screen
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 @Composable
 fun CreateListingScreen(
     repository: HouseHuntersRepository,
     token: String?,
-    scope: CoroutineScope,
     onListingCreated: (ListingDetailResponse) -> Unit,
     onNavigate: (String) -> Unit,
     onLogout: () -> Unit
 ) {
-    val imageUrls = remember { mutableStateListOf<String>() }
+    val scope = rememberCoroutineScope()
+    var imageUrls by rememberSaveable { mutableStateOf(listOf<String>()) }
 
-    var address by remember { mutableStateOf("") }
-    var city by remember { mutableStateOf("") }
-    var state by remember { mutableStateOf("") }
-    var zip by remember { mutableStateOf("") }
-    var listingType by remember { mutableStateOf("") }
-    var pricePerDay by remember { mutableStateOf("") }
-    var minDays by remember { mutableStateOf("") }
-    var maxDays by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var pendingImageUrl by remember { mutableStateOf("") }
-    var isSubmitting by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var address by rememberSaveable { mutableStateOf("") }
+    var city by rememberSaveable { mutableStateOf("") }
+    var state by rememberSaveable { mutableStateOf("") }
+    var zip by rememberSaveable { mutableStateOf("") }
+    var listingType by rememberSaveable { mutableStateOf("") }
+    var pricePerDay by rememberSaveable { mutableStateOf("") }
+    var minDays by rememberSaveable { mutableStateOf("") }
+    var maxDays by rememberSaveable { mutableStateOf("") }
+    var description by rememberSaveable { mutableStateOf("") }
+    var pendingImageUrl by rememberSaveable { mutableStateOf("") }
+    var isSubmitting by rememberSaveable { mutableStateOf(false) }
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -208,7 +207,7 @@ fun CreateListingScreen(
                             onClick = {
                                 val normalizedUrl = pendingImageUrl.trim()
                                 if (normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://")) {
-                                    imageUrls += normalizedUrl
+                                    imageUrls = imageUrls + normalizedUrl
                                     pendingImageUrl = ""
                                     errorMessage = null
                                 } else {
@@ -238,7 +237,11 @@ fun CreateListingScreen(
                                             modifier = Modifier.weight(1f)
                                         )
                                         IconButton(
-                                            onClick = { imageUrls.removeAt(index) }
+                                            onClick = {
+                                                imageUrls = imageUrls.filterIndexed { imageIndex, _ ->
+                                                    imageIndex != index
+                                                }
+                                            }
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Close,

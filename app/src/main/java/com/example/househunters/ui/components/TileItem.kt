@@ -17,10 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,9 +41,6 @@ fun TileCard(
     onLikeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Local state to track the like status and allow immediate UI updates
-    var isLiked by remember(item.isLiked) { mutableStateOf(item.isLiked) }
-
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -96,15 +89,14 @@ fun TileCard(
 
                 IconButton(
                     onClick = {
-                        isLiked = !isLiked
                         onLikeClick()
                     },
                     modifier = Modifier.align(Alignment.End)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Favorite,
-                        contentDescription = if (isLiked) "Unlike" else "Like",
-                        tint = if (isLiked) Color.Red else Color.Gray
+                        contentDescription = if (item.isLiked) "Unlike" else "Like",
+                        tint = if (item.isLiked) Color.Red else Color.Gray
                     )
                 }
             }

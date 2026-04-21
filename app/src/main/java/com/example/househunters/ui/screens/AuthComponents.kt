@@ -141,6 +141,7 @@ fun AuthTextField(
 fun AuthPrimaryButton(
     label: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier,
     height: Dp = 50.dp,
     shadowElevation: Dp = 10.dp,
@@ -158,6 +159,7 @@ fun AuthPrimaryButton(
     ) {
         Button(
             onClick = onClick,
+            enabled = enabled,
             shape = RoundedCornerShape(30.dp),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp),
             colors = ButtonDefaults.buttonColors(

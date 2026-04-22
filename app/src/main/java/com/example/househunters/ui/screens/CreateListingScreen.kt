@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,7 +15,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Button
@@ -31,16 +35,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
 import com.example.househunters.data.HouseHuntersRepository
 import com.example.househunters.data.remote.ListingDetailResponse
 import com.example.househunters.data.remote.ListingImageRequest
 import com.example.househunters.data.remote.UpsertListingRequest
 import com.example.househunters.ui.components.NavBar
 import com.example.househunters.ui.navigation.Screen
+import coil.compose.SubcomposeAsyncImage
 import kotlinx.coroutines.launch
 
 @Composable
@@ -222,34 +229,14 @@ fun CreateListingScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             imageUrls.forEachIndexed { index, imageUrl ->
-                                Surface(
-                                    shape = RoundedCornerShape(18.dp),
-                                    tonalElevation = 1.dp
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = imageUrl,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        IconButton(
-                                            onClick = {
-                                                imageUrls = imageUrls.filterIndexed { imageIndex, _ ->
-                                                    imageIndex != index
-                                                }
-                                            }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Remove image URL"
-                                            )
+                                ImageUrlPreviewCard(
+                                    imageUrl = imageUrl,
+                                    onRemove = {
+                                        imageUrls = imageUrls.filterIndexed { imageIndex, _ ->
+                                            imageIndex != index
                                         }
                                     }
-                                }
+                                )
                             }
                         }
                     }
@@ -342,6 +329,92 @@ fun CreateListingScreen(
             modifier = Modifier
                 .align(androidx.compose.ui.Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
+        )
+    }
+}
+
+@Composable
+private fun ImageUrlPreviewCard(
+    imageUrl: String,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                SubcomposeAsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Listing image preview",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            strokeWidth = 2.dp
+                        )
+                    },
+                    error = {
+                        BrokenImagePreview()
+                    }
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = imageUrl,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "If this preview looks broken or never appears, double-check the link before publishing.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Remove image URL"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrokenImagePreview() {
+    Column(
+        modifier = Modifier.padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.BrokenImage,
+            contentDescription = "Broken image preview",
+            tint = MaterialTheme.colorScheme.error
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Broken",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error
         )
     }
 }

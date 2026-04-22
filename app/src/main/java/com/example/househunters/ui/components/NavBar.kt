@@ -1,6 +1,7 @@
 package com.example.househunters.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,14 +10,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -34,6 +42,8 @@ fun NavBar(
     onLogout: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    var showMoreMenu by remember { mutableStateOf(false) }
+
     Surface(
         modifier = modifier
             .padding(horizontal = 24.dp, vertical = 24.dp)
@@ -74,12 +84,31 @@ fun NavBar(
                 onClick = { onNavigate(Screen.CreateListing) }
             )
             if (onLogout != null) {
-                NavItem(
-                    icon = Icons.AutoMirrored.Filled.Logout,
-                    label = "Logout",
-                    isSelected = false,
-                    onClick = onLogout
-                )
+                Box {
+                    MoreMenuItem(
+                        isSelected = currentRoute == Screen.Profile,
+                        onOpenMenu = { showMoreMenu = true }
+                    )
+                    DropdownMenu(
+                        expanded = showMoreMenu,
+                        onDismissRequest = { showMoreMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Profile") },
+                            onClick = {
+                                showMoreMenu = false
+                                onNavigate(Screen.Profile)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Logout") },
+                            onClick = {
+                                showMoreMenu = false
+                                onLogout()
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -99,6 +128,24 @@ private fun NavItem(
         Icon(
             imageVector = icon,
             contentDescription = label,
+            tint = if (isSelected) Color(0xFF202020) else Color.Gray,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun MoreMenuItem(
+    isSelected: Boolean,
+    onOpenMenu: () -> Unit
+) {
+    IconButton(
+        onClick = onOpenMenu,
+        modifier = Modifier.size(60.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.MoreVert,
+            contentDescription = "More",
             tint = if (isSelected) Color(0xFF202020) else Color.Gray,
             modifier = Modifier.size(24.dp)
         )

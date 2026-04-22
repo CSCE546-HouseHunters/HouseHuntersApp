@@ -24,6 +24,7 @@ import com.example.househunters.ui.screens.CreateListingScreen
 import com.example.househunters.ui.screens.Explore
 import com.example.househunters.ui.screens.ListingRoute
 import com.example.househunters.ui.screens.LoginScreen
+import com.example.househunters.ui.screens.ProfileScreen
 import com.example.househunters.ui.screens.SavedScreen
 import com.example.househunters.ui.screens.SignupScreen
 import com.example.househunters.ui.screens.WelcomeScreen
@@ -56,7 +57,17 @@ private fun HouseHuntersApp() {
     val sessionState = appViewModel.sessionState
     val listingsState = appViewModel.listingsState
     val authState = appViewModel.authState
+    val profileState = appViewModel.profileState
     val filters = appViewModel.filters
+
+    fun performLogout() {
+        appViewModel.logout {
+            navController.navigate(Screen.Welcome) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     LaunchedEffect(sessionState.appReady, sessionState.token) {
         if (!sessionState.appReady) return@LaunchedEffect
@@ -80,10 +91,21 @@ private fun HouseHuntersApp() {
         if (route == Screen.Saved) {
             appViewModel.refreshMyStuff()
         }
+        if (route == Screen.Profile) {
+            appViewModel.clearProfileMessages()
+        }
         navController.navigate(route) {
             launchSingleTop = true
-            restoreState = route == Screen.Explore || route == Screen.Saved || route == Screen.CreateListing
-            if (route == Screen.Explore || route == Screen.Saved || route == Screen.CreateListing) {
+            restoreState = route == Screen.Explore ||
+                route == Screen.Saved ||
+                route == Screen.CreateListing ||
+                route == Screen.Profile
+            if (
+                route == Screen.Explore ||
+                route == Screen.Saved ||
+                route == Screen.CreateListing ||
+                route == Screen.Profile
+            ) {
                 popUpTo(Screen.Explore) {
                     saveState = true
                 }
@@ -148,14 +170,7 @@ private fun HouseHuntersApp() {
                 onToggleFavorite = appViewModel::toggleFavorite,
                 onOpenListing = { listingId -> navController.navigate(Screen.listing(listingId)) },
                 onNavigate = ::navigate,
-                onLogout = {
-                    appViewModel.logout {
-                        navController.navigate(Screen.Welcome) {
-                            popUpTo(0) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                }
+                onLogout = ::performLogout
             )
         }
         composable(Screen.Saved) {
@@ -175,14 +190,7 @@ private fun HouseHuntersApp() {
                 onToggleFavorite = appViewModel::toggleFavorite,
                 onOpenListing = { listingId -> navController.navigate(Screen.listing(listingId)) },
                 onNavigate = ::navigate,
-                onLogout = {
-                    appViewModel.logout {
-                        navController.navigate(Screen.Welcome) {
-                            popUpTo(0) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                }
+                onLogout = ::performLogout
             )
         }
         composable(Screen.CreateListing) {
@@ -196,14 +204,19 @@ private fun HouseHuntersApp() {
                     }
                 },
                 onNavigate = ::navigate,
-                onLogout = {
-                    appViewModel.logout {
-                        navController.navigate(Screen.Welcome) {
-                            popUpTo(0) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                }
+                onLogout = ::performLogout
+            )
+        }
+        composable(Screen.Profile) {
+            ProfileScreen(
+                user = sessionState.user,
+                profileState = profileState,
+                onSaveProfile = { firstName, lastName, email, phone ->
+                    appViewModel.updateProfile(firstName, lastName, email, phone)
+                },
+                onClearMessages = appViewModel::clearProfileMessages,
+                onNavigate = ::navigate,
+                onLogout = ::performLogout
             )
         }
         composable(
@@ -226,14 +239,7 @@ private fun HouseHuntersApp() {
                     }
                 },
                 onNavigate = ::navigate,
-                onLogout = {
-                    appViewModel.logout {
-                        navController.navigate(Screen.Welcome) {
-                            popUpTo(0) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
-                }
+                onLogout = ::performLogout
             )
         }
     }

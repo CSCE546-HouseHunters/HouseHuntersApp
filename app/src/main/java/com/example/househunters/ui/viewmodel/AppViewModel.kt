@@ -50,6 +50,12 @@ data class AuthUiState(
     val signupError: String? = null
 )
 
+data class ProfileUiState(
+    val isSaving: Boolean = false,
+    val errorMessage: String? = null,
+    val successMessage: String? = null
+)
+
 data class MyStuffUiState(
     val bookings: List<BookingResponse> = emptyList(),
     val isLoading: Boolean = false,
@@ -67,6 +73,9 @@ class AppViewModel(
         private set
 
     var authState by mutableStateOf(AuthUiState())
+        private set
+
+    var profileState by mutableStateOf(ProfileUiState())
         private set
 
     var myStuffState by mutableStateOf(MyStuffUiState())
@@ -204,9 +213,82 @@ class AppViewModel(
             listings = listingsState.listings,
             isLoading = false
         )
+        profileState = ProfileUiState()
         myStuffState = MyStuffUiState()
         sessionStorage.clear()
         onLoggedOut()
+    }
+
+    fun clearProfileMessages() {
+        profileState = profileState.copy(
+            errorMessage = null,
+            successMessage = null
+        )
+    }
+
+    fun updateProfile(
+        firstName: String,
+        lastName: String,
+        email: String,
+        phone: String,
+        onSuccess: (() -> Unit)? = null
+    ) {
+        val token = sessionState.token
+        val currentUser = sessionState.user
+
+        val validationError = validateProfileForm(
+            firstName = firstName,
+            lastName = lastName,
+            email = email,
+            phone = phone
+        )
+        if (validationError != null) {
+            profileState = profileState.copy(
+                errorMessage = validationError,
+                successMessage = null
+            )
+            return
+        }
+
+        if (token.isNullOrBlank() || currentUser == null) {
+            profileState = profileState.copy(
+                errorMessage = "Log in again before updating your profile.",
+                successMessage = null
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            profileState = profileState.copy(
+                isSaving = true,
+                errorMessage = null,
+                successMessage = null
+            )
+
+            runCatching {
+                repository.updateCurrentUser(
+                    firstName = firstName.trim(),
+                    lastName = lastName.trim(),
+                    email = email.trim(),
+                    phone = phone.trim(),
+                    token = token
+                )
+            }.onSuccess { updatedUser ->
+                sessionState = sessionState.copy(user = updatedUser)
+                profileState = profileState.copy(
+                    isSaving = false,
+                    errorMessage = null,
+                    successMessage = "Profile updated."
+                )
+                onSuccess?.invoke()
+            }.onFailure { error ->
+                profileState = profileState.copy(
+                    isSaving = false,
+                    errorMessage = error.message ?: "Unable to update your profile.",
+                    successMessage = null
+                )
+            }
+        }
     }
 
     fun refreshMyStuff() {
@@ -425,3 +507,27 @@ private fun String.filterAllowedDecimal(): String {
         }
     }
 }
+
+private fun validateProfileForm(
+    firstName: String,
+    lastName: String,
+    email: String,
+    phone: String
+): String? {
+    if (firstName.isBlank() || lastName.isBlank()) {
+        return "Enter both your first and last name."
+    }
+    if (email.isBlank()) {
+        return "Enter your email address."
+    }
+    if (!EMAIL_REGEX.matches(email.trim())) {
+        return "Enter a valid email address."
+    }
+    val normalizedPhone = phone.filter(Char::isDigit)
+    if (normalizedPhone.length !in 10..15) {
+        return "Enter a valid phone number."
+    }
+    return null
+}
+
+private val EMAIL_REGEX = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")

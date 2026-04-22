@@ -7,6 +7,7 @@ object Screen {
     const val Explore = "explore"
     const val Saved = "saved"
     const val CreateListing = "create-listing"
+    const val Profile = "profile"
     const val Listing = "listing"
     const val ListingIdArg = "listingId"
     const val ListingRoute = "$Listing/{$ListingIdArg}"

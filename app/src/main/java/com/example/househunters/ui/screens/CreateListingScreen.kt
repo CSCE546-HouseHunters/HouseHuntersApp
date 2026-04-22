@@ -20,9 +20,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +55,7 @@ import com.example.househunters.ui.navigation.Screen
 import coil.compose.SubcomposeAsyncImage
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateListingScreen(
     repository: HouseHuntersRepository,
@@ -73,6 +79,7 @@ fun CreateListingScreen(
     var pendingImageUrl by rememberSaveable { mutableStateOf("") }
     var isSubmitting by rememberSaveable { mutableStateOf(false) }
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var showPropertyTypeMenu by rememberSaveable { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -139,15 +146,39 @@ fun CreateListingScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 LabeledField("Listing details") {
-                    OutlinedTextField(
-                        value = listingType,
-                        onValueChange = { listingType = it },
-                        label = { Text("Property type") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        placeholder = { Text("House, apartment, room...") },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
-                    )
+                    ExposedDropdownMenuBox(
+                        expanded = showPropertyTypeMenu,
+                        onExpandedChange = { showPropertyTypeMenu = !showPropertyTypeMenu }
+                    ) {
+                        OutlinedTextField(
+                            value = listingType.ifBlank { "Select a property type" },
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Property type") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = showPropertyTypeMenu)
+                            },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = showPropertyTypeMenu,
+                            onDismissRequest = { showPropertyTypeMenu = false }
+                        ) {
+                            PropertyTypeOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.label) },
+                                    onClick = {
+                                        listingType = option.apiValue
+                                        errorMessage = null
+                                        showPropertyTypeMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
                         value = pricePerDay,
@@ -481,7 +512,10 @@ private fun validateListingForm(
     if (address.isBlank() || city.isBlank() || state.isBlank() || zip.isBlank()) {
         return "Fill in the address, city, state, and ZIP code."
     }
-    if (listingType.isBlank()) return "Add a property type."
+    if (listingType.isBlank()) return "Select a property type."
+    if (listingType !in PropertyTypeOptions.map(PropertyTypeOption::apiValue)) {
+        return "Select one of the supported property types."
+    }
     if (description.isBlank()) return "Add a short description for the listing."
     if (state.length != 2) return "Use a 2-letter state abbreviation."
     if (zip.length != 5) return "ZIP code should be 5 digits."
@@ -497,6 +531,18 @@ private fun validateListingForm(
     }
     return null
 }
+
+private data class PropertyTypeOption(
+    val apiValue: String,
+    val label: String
+)
+
+private val PropertyTypeOptions = listOf(
+    PropertyTypeOption(apiValue = "Apartment", label = "Apartment"),
+    PropertyTypeOption(apiValue = "House", label = "House"),
+    PropertyTypeOption(apiValue = "Room", label = "Room"),
+    PropertyTypeOption(apiValue = "GuestHouse", label = "Guest House")
+)
 
 private fun String.filterAllowedDecimal(): String {
     val filtered = filter { it.isDigit() || it == '.' }

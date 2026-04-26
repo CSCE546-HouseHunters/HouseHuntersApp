@@ -38,6 +38,7 @@ class ListingViewModel(
         private set
 
     init {
+        // Details and availability can load independently, so the screen can show progress for each.
         loadListing()
         loadAvailability()
     }
@@ -63,6 +64,7 @@ class ListingViewModel(
                     isBooking = false,
                     bookingMessage = "Booking created: ${booking.status}"
                 )
+                // Refresh unavailable dates immediately so the calendar reflects the new booking.
                 loadAvailability()
             }.onFailure { error ->
                 uiState = uiState.copy(
@@ -139,6 +141,7 @@ class ListingViewModel(
                     isLoading = false,
                     errorMessage = null
                 )
+                // Owners need booking requests on the detail page; guests do not.
                 if (currentUserId == listing.userId && !token.isNullOrBlank()) {
                     loadOwnerBookings()
                 }

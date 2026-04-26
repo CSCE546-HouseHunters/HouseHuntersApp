@@ -98,6 +98,7 @@ fun ListingRoute(
         }
     }
 
+    // Turn unavailable ranges into individual date strings so validation stays simple.
     val blockedDates = remember(uiState.availabilityRanges) {
         uiState.availabilityRanges.toBlockedDateSet()
     }
@@ -118,6 +119,7 @@ fun ListingRoute(
         else -> {
             val currentListing = uiState.listing ?: return
             val isOwner = currentUserId == currentListing.userId
+            // Keep the reserve button disabled until the date selection is safe to submit.
             val guestValidationMessage = guestBookingValidationMessage(
                 token = token,
                 uiState = uiState,
@@ -608,6 +610,7 @@ private fun List<ListingAvailabilityRangeResponse>.toBlockedDateSet(): Set<Strin
         val parsedEnd = range.endDate.toUtcEpochMillisOrNull() ?: return@forEach
         if (parsedEnd < parsedStart) return@forEach
 
+        // Walk each inclusive range one UTC day at a time to avoid local-time drift.
         var currentDateMillis = parsedStart
         while (currentDateMillis <= parsedEnd) {
             add(currentDateMillis.toBackendDateString())
@@ -625,6 +628,7 @@ private fun hasBlockedDateInRange(
     val end = endDate.toUtcEpochMillisOrNull() ?: return false
     if (end < start) return false
 
+    // Any overlap with a blocked day means the booking would conflict with existing availability.
     var currentDateMillis = start
     while (currentDateMillis <= end) {
         if (blockedDates.contains(currentDateMillis.toBackendDateString())) return true

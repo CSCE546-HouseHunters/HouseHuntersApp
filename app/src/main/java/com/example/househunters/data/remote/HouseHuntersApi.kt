@@ -17,6 +17,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 class HouseHuntersApi(
     @PublishedApi internal val client: OkHttpClient = OkHttpClient(),
     @PublishedApi internal val json: Json = Json {
+        // The backend may add fields over time; ignore them so older app builds keep working.
         ignoreUnknownKeys = true
     }
 ) {
@@ -54,6 +55,7 @@ class HouseHuntersApi(
         body: B? = null,
         token: String? = null
     ): T = withContext(Dispatchers.IO) {
+        // All network work stays off the main thread so Compose can keep rendering smoothly.
         val builder = Request.Builder()
             .url("$BASE_URL$path")
             .header("Accept", "application/json")
@@ -98,6 +100,7 @@ class HouseHuntersApi(
 
     @PublishedApi
     internal fun buildErrorMessage(code: Int, rawBody: String): String {
+        // Prefer useful backend messages over a generic HTTP code whenever the body has details.
         val parsedMessage = rawBody
             .takeIf { it.isNotBlank() }
             ?.let(::extractJsonErrorMessage)
@@ -114,6 +117,7 @@ class HouseHuntersApi(
 
     private fun collectMessages(element: JsonElement): List<String> = when (element) {
         is JsonObject -> buildList {
+            // Common API error shapes use title/detail/message, sometimes nested under errors.
             listOf("title", "detail", "message").forEach { key ->
                 element[key]
                     ?.let(::extractLeafText)

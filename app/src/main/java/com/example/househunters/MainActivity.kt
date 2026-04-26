@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
 private fun HouseHuntersApp() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    // Route-level screens share this repository so listing reads/writes use one API wrapper.
     val repository = remember { HouseHuntersRepository() }
     val appViewModel: AppViewModel = viewModel(
         factory = AppViewModel.factory(context.applicationContext as Application)
@@ -69,6 +70,7 @@ private fun HouseHuntersApp() {
         }
     }
 
+    // Wait until the stored session is checked before deciding which screen should be shown.
     LaunchedEffect(sessionState.appReady, sessionState.token) {
         if (!sessionState.appReady) return@LaunchedEffect
 
@@ -96,6 +98,7 @@ private fun HouseHuntersApp() {
         }
         navController.navigate(route) {
             launchSingleTop = true
+            // Preserve bottom-tab state so filters, scroll, and form drafts survive tab changes.
             restoreState = route == Screen.Explore ||
                 route == Screen.Saved ||
                 route == Screen.CreateListing ||
@@ -114,6 +117,7 @@ private fun HouseHuntersApp() {
     }
 
     if (!sessionState.appReady) {
+        // Avoid flashing the welcome screen while SharedPreferences/auth validation finishes.
         Surface(modifier = Modifier.fillMaxSize()) {}
         return
     }

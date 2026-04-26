@@ -65,6 +65,8 @@ fun CreateListingScreen(
     onLogout: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+
+    // Draft listing fields live in saveable state so rotation does not wipe a half-finished post.
     var imageUrls by rememberSaveable { mutableStateOf(listOf<String>()) }
 
     var address by rememberSaveable { mutableStateOf("") }
@@ -224,6 +226,7 @@ fun CreateListingScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 LabeledField("Photos") {
+                    // Store image URLs instead of device files so the backend receives lightweight JSON.
                     Text(
                         text = "Paste public image URLs for now. The backend is rejecting embedded camera/file image data with a server error.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -293,6 +296,7 @@ fun CreateListingScreen(
                 Button(
                     onClick = {
                         errorMessage = null
+                        // Catch missing or malformed fields before making a network request.
                         val validationError = validateListingForm(
                             address = address,
                             city = city,
@@ -310,6 +314,7 @@ fun CreateListingScreen(
                             return@Button
                         }
 
+                        // Convert UI strings into the strongly typed API payload the server expects.
                         val request = UpsertListingRequest(
                             address = address.trim(),
                             city = city.trim(),

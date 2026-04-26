@@ -85,9 +85,11 @@ class AppViewModel(
         private set
 
     init {
+        // Bring the app into a usable state as soon as the ViewModel is created.
         bootstrap()
     }
 
+    // The API gives us broad listing data; these local filters keep search fast and responsive.
     val visibleListings: List<ListingSummaryResponse>
         get() = listingsState.listings
             .filterByQuery(filters.query)
@@ -144,6 +146,7 @@ class AppViewModel(
 
     fun refreshListings() {
         viewModelScope.launch {
+            // Keep the old list on screen while the fresh network request is in flight.
             listingsState = listingsState.copy(
                 isLoading = true,
                 errorMessage = null
@@ -313,6 +316,7 @@ class AppViewModel(
         viewModelScope.launch {
             val previous = listingsState.favoriteIds
             val isFavorite = previous.contains(listingId)
+            // Optimistically update the heart so the UI feels instant, then roll back on failure.
             listingsState = listingsState.copy(
                 favoriteIds = if (isFavorite) previous - listingId else previous + listingId
             )
@@ -334,6 +338,7 @@ class AppViewModel(
 
     private fun bootstrap() {
         viewModelScope.launch {
+            // Listings can load for everyone, even before we know whether a user is signed in.
             refreshListings()
 
             val savedToken = sessionStorage.readToken()
@@ -348,6 +353,7 @@ class AppViewModel(
                     )
                     refreshMyStuff()
                 }.onFailure {
+                    // A bad or expired token should not trap the user in a broken signed-in state.
                     sessionStorage.clear()
                     sessionState = SessionUiState(appReady = true)
                 }
@@ -358,6 +364,7 @@ class AppViewModel(
     }
 
     private fun completeAuth(token: String, user: UserProfileResponse) {
+        // After auth succeeds, persist the token and hydrate all signed-in-only data.
         sessionState = SessionUiState(token = token, user = user, appReady = true)
         sessionStorage.writeToken(token)
         refreshMyStuff()
@@ -454,6 +461,7 @@ private fun List<ListingSummaryResponse>.filterByQuery(
     if (normalizedTerms.isEmpty()) return this
 
     return filter { listing ->
+        // Treat address, location, type, and description as one searchable sentence.
         val searchableText = buildString {
             append(listing.address)
             append(' ')

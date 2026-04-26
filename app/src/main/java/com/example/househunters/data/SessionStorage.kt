@@ -5,6 +5,7 @@ import android.content.Context
 class SessionStorage(context: Context) {
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    // Keep only the auth token locally; the latest user profile is fetched from the API on startup.
     fun readToken(): String? = preferences.getString(KEY_TOKEN, null)
 
     fun writeToken(token: String) {
